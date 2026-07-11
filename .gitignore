@@ -1,6 +1,11 @@
 node_modules/
 sandboxes/*/node_modules/
 
+# Build output & test coverage
+dist/
+coverage/
+*.tsbuildinfo
+
 # OS noise
 .DS_Store
 Thumbs.db

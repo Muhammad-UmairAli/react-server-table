@@ -1,8 +1,13 @@
 name: CI
 
-# Runs the same hooks defined in .pre-commit-config.yaml on every PR
-# and on every push that isn't to a protected branch. Catches issues
-# from developers who haven't run `pre-commit install` locally.
+# Runs the same hooks defined in .pre-commit-config.yaml on every PR into a
+# protected branch. Catches issues from developers who haven't run
+# `pre-commit install` locally.
+#
+# Only `pull_request` is used: branch protection forces every change through a
+# PR, so PR runs already cover all work. (A `push` trigger on feature branches
+# double-runs alongside the PR run; the concurrency guard then cancels one,
+# which GitHub surfaces as a spurious failed check — so we don't use it.)
 #
 # Failing CI blocks the merge per the branch-protection ruleset
 # (see .github/rulesets/main.json and develop.json once you wire
@@ -13,15 +18,10 @@ name: CI
 on:
   pull_request:
     branches: [main, develop]
-  push:
-    branches-ignore: [main, develop]
 
-# A push to an open PR branch matches both triggers; cancel the older
-# duplicate instead of running the same hooks twice.
+# Cancel an in-progress run when the PR head is updated with a new push.
 concurrency:
-  # head_ref is set only on pull_request runs; ref_name gives the same bare
-  # branch name on push runs, so the two duplicate runs share one group.
-  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  group: ci-${{ github.workflow }}-${{ github.head_ref }}
   cancel-in-progress: true
 
 jobs:
