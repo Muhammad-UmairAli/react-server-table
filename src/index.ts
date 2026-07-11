@@ -14,4 +14,3 @@ export type {
   SortState,
   Updater,
 } from "./types";
-export { applyUpdater, defaultGetRowId } from "./utils";
