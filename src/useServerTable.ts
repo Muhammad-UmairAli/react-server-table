@@ -134,12 +134,18 @@ export function useServerTable<TRow>(
   const [error, setError] = useState<Error | null>(null);
   const [reloadCount, setReloadCount] = useState(0);
 
-  // Keep the latest fetchData/getRowId in refs so an unstable (inline) function
-  // from the consumer does not retrigger fetches or break memoised callbacks.
+  // Keep the latest fetchData in a ref — assigned in an effect (not during
+  // render, so it is safe under concurrent rendering) — so that an unstable
+  // (inline) fetcher does not retrigger the fetch effect.
   const fetchDataRef = useRef<FetchData<TRow>>(fetchData);
-  fetchDataRef.current = fetchData;
-  const getRowIdRef = useRef(options.getRowId ?? defaultGetRowId<TRow>);
-  getRowIdRef.current = options.getRowId ?? defaultGetRowId<TRow>;
+  useEffect(() => {
+    fetchDataRef.current = fetchData;
+  });
+
+  // getRowId is resolved every render and threaded through the selection
+  // callbacks'/memos' dependency arrays, so derived selection state stays
+  // correct even when the consumer passes a new getRowId identity.
+  const getRowId = options.getRowId ?? defaultGetRowId<TRow>;
 
   const requestIdRef = useRef(0);
 
@@ -212,8 +218,9 @@ export function useServerTable<TRow>(
   }, []);
 
   const nextPage = useCallback(
-    () => setPageIndex((i) => i + 1),
-    [setPageIndex],
+    () =>
+      setPageIndex((i) => (pageCount > 0 ? Math.min(i + 1, pageCount - 1) : i)),
+    [setPageIndex, pageCount],
   );
   const previousPage = useCallback(
     () => setPageIndex((i) => i - 1),
@@ -280,14 +287,13 @@ export function useServerTable<TRow>(
 
   // ── Selection controls ────────────────────────────────────────────────────
   const isRowSelected = useCallback(
-    (row: TRow, index: number) =>
-      selection[getRowIdRef.current(row, index)] === true,
-    [selection],
+    (row: TRow, index: number) => selection[getRowId(row, index)] === true,
+    [selection, getRowId],
   );
 
   const toggleRowSelected = useCallback(
     (row: TRow, index: number, value?: boolean) => {
-      const id = getRowIdRef.current(row, index);
+      const id = getRowId(row, index);
       setSelection((prev) => {
         const nextValue = value ?? prev[id] !== true;
         if (nextValue) return { ...prev, [id]: true };
@@ -296,13 +302,12 @@ export function useServerTable<TRow>(
         return rest;
       });
     },
-    [],
+    [getRowId],
   );
 
   const toggleAllRowsSelected = useCallback(
     (value?: boolean) => {
       setSelection((prev) => {
-        const getRowId = getRowIdRef.current;
         const allSelected =
           rows.length > 0 &&
           rows.every((row, i) => prev[getRowId(row, i)] === true);
@@ -316,7 +321,7 @@ export function useServerTable<TRow>(
         return next;
       });
     },
-    [rows],
+    [rows, getRowId],
   );
 
   const clearSelection = useCallback(() => setSelection({}), []);
@@ -327,22 +332,22 @@ export function useServerTable<TRow>(
   );
 
   const selectedRows = useMemo(
-    () => rows.filter((row, i) => selection[getRowIdRef.current(row, i)] === true),
-    [rows, selection],
+    () => rows.filter((row, i) => selection[getRowId(row, i)] === true),
+    [rows, selection, getRowId],
   );
 
   const isAllRowsSelected = useMemo(
     () =>
       rows.length > 0 &&
-      rows.every((row, i) => selection[getRowIdRef.current(row, i)] === true),
-    [rows, selection],
+      rows.every((row, i) => selection[getRowId(row, i)] === true),
+    [rows, selection, getRowId],
   );
 
   const isSomeRowsSelected = useMemo(
     () =>
       !isAllRowsSelected &&
-      rows.some((row, i) => selection[getRowIdRef.current(row, i)] === true),
-    [rows, selection, isAllRowsSelected],
+      rows.some((row, i) => selection[getRowId(row, i)] === true),
+    [rows, selection, getRowId, isAllRowsSelected],
   );
 
   return {

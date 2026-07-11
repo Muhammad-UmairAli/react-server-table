@@ -358,7 +358,9 @@ describe("useServerTable — fetch lifecycle", () => {
     );
 
     // Trigger a second request (page 1) while the first (page 0) is pending.
-    act(() => result.current.nextPage());
+    // Use setPageIndex directly: nextPage() intentionally won't advance until
+    // the first response establishes a page count.
+    act(() => result.current.setPageIndex(1));
     await waitFor(() => expect(resolvers).toHaveLength(2));
 
     // Resolve the NEWER request first (page 1).
@@ -455,6 +457,81 @@ describe("useServerTable — regression (code review)", () => {
     // Setting the filter still drives a refetch (deps compare by array identity).
     await waitFor(() => expect(fetchData).toHaveBeenCalledTimes(2));
     expect(result.current.getFilter("qty")).toBe(10n);
+  });
+});
+
+describe("useServerTable — hardening (Phase 2)", () => {
+  it("recomputes derived selection when getRowId identity changes (F5)", async () => {
+    const fetchData = makeFetcher();
+    const { result, rerender } = renderHook(
+      ({ gid }: { gid: (r: Row) => string }) =>
+        useServerTable({ fetchData, getRowId: gid }),
+      { initialProps: { gid: (r: Row) => String(r.id) } },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const row0 = result.current.rows[0];
+    act(() => result.current.toggleRowSelected(row0, 0));
+    expect(result.current.selectedRows).toEqual([row0]);
+
+    // Same row now maps to a different id → derived selection must update.
+    rerender({ gid: (r: Row) => `x-${r.id}` });
+    expect(result.current.selectedRows).toEqual([]);
+    expect(result.current.isRowSelected(row0, 0)).toBe(false);
+  });
+
+  it("nextPage does not advance past the last page (F6)", async () => {
+    const fetchData = makeFetcher();
+    const { result } = renderHook(() =>
+      useServerTable({ fetchData, getRowId }),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => result.current.setPageIndex(5)); // last page (6 pages)
+    await waitFor(() => expect(result.current.pagination.pageIndex).toBe(5));
+
+    act(() => result.current.nextPage());
+    expect(result.current.pagination.pageIndex).toBe(5); // clamped, unchanged
+    expect(result.current.canNextPage).toBe(false);
+  });
+
+  it("does not advance when there are no pages yet (F6)", async () => {
+    const fetchData = vi.fn(
+      async (): Promise<FetchDataResult<Row>> => ({ rows: [], total: 0 }),
+    );
+    const { result } = renderHook(() =>
+      useServerTable({ fetchData, getRowId }),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.pageCount).toBe(0);
+    act(() => result.current.nextPage());
+    expect(result.current.pagination.pageIndex).toBe(0);
+  });
+
+  it("uses the latest fetchData after a rerender without refetching on rerender (F7)", async () => {
+    const first = makeFetcher();
+    const second = vi.fn(
+      async ({ pagination }: ServerTableParams): Promise<FetchDataResult<Row>> => ({
+        rows: makeRows(pagination.pageIndex, pagination.pageSize).map((r) => ({
+          ...r,
+          name: `second-${r.id}`,
+        })),
+        total: TOTAL,
+      }),
+    );
+    const { result, rerender } = renderHook(
+      ({ fd }: { fd: typeof first }) =>
+        useServerTable({ fetchData: fd, getRowId }),
+      { initialProps: { fd: first } },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(first).toHaveBeenCalledTimes(1);
+
+    rerender({ fd: second });
+    expect(second).not.toHaveBeenCalled(); // rerender alone must not refetch
+
+    act(() => result.current.reload());
+    await waitFor(() => expect(second).toHaveBeenCalledTimes(1));
+    expect(result.current.rows[0].name).toBe("second-0");
   });
 });
 
