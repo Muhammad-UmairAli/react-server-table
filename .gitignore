@@ -1,0 +1,39 @@
+node_modules/
+sandboxes/*/node_modules/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Python bytecode (created whenever tools/*.py run)
+__pycache__/
+*.py[cod]
+
+# ─── Claude orchestration-kit overlay — NOT published in the open-source repo ───
+# The kit's project-management scaffolding, config, tracking data, and generated
+# views are local-only. Ignoring the whole overlay keeps the public repository to
+# the react-server-table library source. These files stay on disk and keep working
+# locally; git simply never sees them.
+
+# Kit infrastructure — staged assets used by kit slash commands
+.kit/
+
+# Claude Code config, commands, agents, hooks, tracking logs, cloned tools (ccpm), etc.
+.claude/
+
+# Kit dashboard, plan, and human-readable tracking logs
+DASHBOARD.html
+SPLIT-PLAN.md
+TODO.md
+TIME-LOG.md
+AGENT-LOG.md
+
+# Kit methodology docs and tooling
+docs/
+tools/
+
+# AI operating instructions
+CLAUDE.md
+
+# Generated exports (tools/export-phase-times.py --csv)
+phase-times*.csv
