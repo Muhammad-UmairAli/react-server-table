@@ -1,6 +1,6 @@
 # CI/CD workflows
 
-`react-server-table` is published to **npm** as `@muhammad-umairali/react-server-table`.
+`react-server-table` is published to **npm** as `@umairalee/react-server-table`.
 There is no cloud UAT/PROD deployment.
 
 | Workflow      | Trigger                        | Does                                                       |
@@ -15,7 +15,7 @@ There is no cloud UAT/PROD deployment.
 2. Bump `version` in `package.json` via a PR into `develop`, then promote
    `develop` → `main` (Git Flow release).
 3. On `main`, publish a **GitHub Release** whose tag is `v<version>` (e.g. `v0.1.0`).
-4. `publish.yml` runs and publishes `@muhammad-umairali/react-server-table@<version>`.
+4. `publish.yml` runs and publishes `@umairalee/react-server-table@<version>`.
 
 The publish job fails fast if the release tag doesn't match `package.json`'s
 `version`, so a mistagged release never publishes the wrong number.

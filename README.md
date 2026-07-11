@@ -19,8 +19,8 @@ Every app rebuilds this, and it's easy to get the race conditions wrong.
 ## Install
 
 ```sh
-npm install @muhammad-umairali/react-server-table
-# or: pnpm add @muhammad-umairali/react-server-table
+npm install @umairalee/react-server-table
+# or: pnpm add @umairalee/react-server-table
 ```
 
 React 17, 18, or 19 (peer dependency).
@@ -30,7 +30,7 @@ React 17, 18, or 19 (peer dependency).
 Give the hook a `fetchData` function. It's called with the current `{ pagination, sorting, filters }` and must return `{ rows, total }`. That's the whole contract.
 
 ```tsx
-import { useServerTable } from "@muhammad-umairali/react-server-table";
+import { useServerTable } from "@umairalee/react-server-table";
 
 interface User {
   id: number;
