@@ -1,0 +1,59 @@
+name: Publish
+
+# Publishes the package to npm when a GitHub Release is published.
+#
+# One-time setup:
+#   1. Create an npm "Automation" access token (npmjs.com → Access Tokens).
+#   2. Add it as the repository secret NPM_TOKEN
+#      (Settings → Secrets and variables → Actions).
+#   3. Cut a release: bump `version` in package.json via a PR to main, then
+#      publish a GitHub Release whose tag is `v<version>` (e.g. v0.1.0).
+#
+# The job rebuilds and re-tests from the tagged commit, verifies the tag
+# matches package.json, and publishes with npm provenance.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # required for npm provenance
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm test
+
+      - run: pnpm run build
+
+      - name: Verify release tag matches package.json version
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Release tag ($TAG_VERSION) does not match package.json version ($PKG_VERSION). Bump package.json and re-tag."
+            exit 1
+          fi
+          echo "Publishing version $PKG_VERSION"
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public --ignore-scripts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
