@@ -214,9 +214,12 @@ export function useCursorTable<TRow>(
     }
     const current = pages[pageIndex];
     if (!current || current.nextCursor == null || isFetching) return;
+    const from = pageIndex;
     void doFetch(current.nextCursor, "append", sorting, filters).then(
       (applied) => {
-        if (applied) setPageIndex((idx) => idx + 1);
+        // Only advance if the user is still on the page they launched from,
+        // so navigating away mid-fetch doesn't yank them to a stale page.
+        if (applied) setPageIndex((idx) => (idx === from ? idx + 1 : idx));
       },
     );
   }, [pages, pageIndex, isFetching, doFetch, sorting, filters]);
