@@ -1,6 +1,6 @@
 {
   "name": "@umairalee/react-server-table",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Headless React hooks for server-driven data tables — pagination, sorting, filtering, and row selection with a bring-your-own async fetcher.",
   "type": "module",
   "license": "MIT",
