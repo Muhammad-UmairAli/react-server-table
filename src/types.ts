@@ -75,3 +75,35 @@ export interface ServerTableState {
 
 /** A value or a functional updater `(prev) => next`, mirroring React setState. */
 export type Updater<T> = T | ((prev: T) => T);
+
+// ── Cursor pagination ───────────────────────────────────────────────────────
+
+/**
+ * Parameters handed to a cursor fetcher. `cursor` is `null` for the first page;
+ * for later pages it is the `nextCursor` your fetcher previously returned.
+ */
+export interface CursorTableParams {
+  /** Opaque cursor for the page to fetch, or `null` for the first page. */
+  cursor: string | null;
+  /** Maximum rows to return for this page. */
+  limit: number;
+  sorting: SortState[];
+  filters: FilterState[];
+}
+
+/** What a cursor fetcher must resolve with. */
+export interface CursorFetchResult<TRow> {
+  /** The rows for the requested page. */
+  rows: TRow[];
+  /** Cursor for the following page, or `null`/`undefined` when there are no more. */
+  nextCursor?: string | null;
+}
+
+/**
+ * The cursor data-fetching contract. `cursor` is `null` on the first page.
+ * Return the page's rows plus the `nextCursor` to advance (omit or `null` at the end).
+ */
+export type CursorFetchData<TRow> = (
+  params: CursorTableParams,
+  context: { signal: AbortSignal },
+) => Promise<CursorFetchResult<TRow>>;

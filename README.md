@@ -221,9 +221,58 @@ useServerTable<User>({
 - **Selection persists across pages**, keyed by `getRowId`. `selectedRowIds` holds every selected id; `selectedRows` and `isAllRowsSelected` describe only the **currently-loaded page** (the hook only holds the rows your fetcher returned for it).
 - **`isLoading`** is `true` until the first fetch settles; **`isFetching`** is `true` for every fetch, including background refetches.
 
+## Cursor pagination
+
+When your API paginates by opaque cursors instead of page numbers (no total count, no jumping to page N), use **`useCursorTable`**. It supports both a **paged** view (Next/Prev) and an **infinite** view (load-more) over the same loaded-page cache — pick whichever your UI needs.
+
+Your fetcher takes a `cursor` (`null` on the first page) and returns the page's rows plus the `nextCursor` (`null` when there are no more):
+
+```tsx
+import { useCursorTable } from "@umairalee/react-server-table";
+
+const table = useCursorTable<User>({
+  getRowId: (row) => String(row.id),
+  limit: 20,
+  fetchData: async ({ cursor, limit, sorting, filters }, { signal }) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor) params.set("cursor", cursor);
+    const res = await fetch(`/api/users?${params}`, { signal });
+    const json = await res.json(); // → { rows: User[]; nextCursor: string | null }
+    return { rows: json.rows, nextCursor: json.nextCursor };
+  },
+});
+```
+
+**Paged (Next / Prev):**
+
+```tsx
+{table.rows.map((u) => <Row key={u.id} user={u} />)}
+
+<button disabled={!table.canPreviousPage} onClick={table.previousPage}>Prev</button>
+<button disabled={!table.canNextPage} onClick={table.nextPage}>Next</button>
+```
+
+**Infinite (load-more):**
+
+```tsx
+{
+  table.allRows.map((u) => <Row key={u.id} user={u} />);
+}
+
+{
+  table.hasMore && (
+    <button disabled={table.isFetching} onClick={table.loadMore}>
+      Load more
+    </button>
+  );
+}
+```
+
+Sorting, filtering, and selection work exactly like `useServerTable` (changing sort/filters resets to the first page). Selection and `selectedRows` here span **all loaded rows**, not just one page. There's no `total`/`pageCount` — cursor APIs don't provide them.
+
 ## Not in scope (yet)
 
-Row virtualization, column resize/reorder, CSV export, and cursor-based pagination are on the roadmap, not in the box today. The core stays small and headless on purpose.
+Row virtualization, column resize/reorder, and CSV export are on the roadmap, not in the box today. The core stays small and headless on purpose.
 
 ## License
 

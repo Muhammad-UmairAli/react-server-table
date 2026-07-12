@@ -8,7 +8,14 @@ import type {
   SortState,
   Updater,
 } from "./types";
-import { applyUpdater, defaultGetRowId } from "./utils";
+import {
+  applyUpdater,
+  cycleSort,
+  defaultGetRowId,
+  setRowSelected,
+  setRowsSelected,
+  upsertFilter,
+} from "./utils";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -238,15 +245,7 @@ export function useServerTable<TRow>(
 
   const toggleSort = useCallback(
     (columnId: string, opts?: { multi?: boolean }) => {
-      const multi = opts?.multi ?? false;
-      setSorting((prev) => {
-        const existing = prev.find((s) => s.id === columnId);
-        const others = multi ? prev.filter((s) => s.id !== columnId) : [];
-        if (!existing) return [...others, { id: columnId, desc: false }];
-        if (!existing.desc)
-          return [...others, { id: columnId, desc: true }];
-        return others; // was desc → remove
-      });
+      setSorting((prev) => cycleSort(prev, columnId, opts?.multi ?? false));
     },
     [setSorting],
   );
@@ -268,11 +267,7 @@ export function useServerTable<TRow>(
 
   const setFilter = useCallback(
     (columnId: string, value: unknown) => {
-      setFilters((prev) => {
-        const others = prev.filter((f) => f.id !== columnId);
-        if (value === undefined) return others;
-        return [...others, { id: columnId, value }];
-      });
+      setFilters((prev) => upsertFilter(prev, columnId, value));
     },
     [setFilters],
   );
@@ -294,31 +289,18 @@ export function useServerTable<TRow>(
   const toggleRowSelected = useCallback(
     (row: TRow, index: number, value?: boolean) => {
       const id = getRowId(row, index);
-      setSelection((prev) => {
-        const nextValue = value ?? prev[id] !== true;
-        if (nextValue) return { ...prev, [id]: true };
-        if (!(id in prev)) return prev;
-        const { [id]: _removed, ...rest } = prev;
-        return rest;
-      });
+      setSelection((prev) => setRowSelected(prev, id, value ?? prev[id] !== true));
     },
     [getRowId],
   );
 
   const toggleAllRowsSelected = useCallback(
     (value?: boolean) => {
+      const ids = rows.map((row, i) => getRowId(row, i));
       setSelection((prev) => {
         const allSelected =
-          rows.length > 0 &&
-          rows.every((row, i) => prev[getRowId(row, i)] === true);
-        const nextValue = value ?? !allSelected;
-        const next = { ...prev };
-        rows.forEach((row, i) => {
-          const id = getRowId(row, i);
-          if (nextValue) next[id] = true;
-          else delete next[id];
-        });
-        return next;
+          ids.length > 0 && ids.every((id) => prev[id] === true);
+        return setRowsSelected(prev, ids, value ?? !allSelected);
       });
     },
     [rows, getRowId],
